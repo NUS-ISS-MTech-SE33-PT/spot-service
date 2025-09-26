@@ -41,3 +41,10 @@ jobs:
         docker build -t $IMAGE_URI ./spot-service
         docker push $IMAGE_URI
         echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+    - name: Terraform
+      run: |
+        terraform -chdir=terraform init
+        terraform -chdir=terraform plan -input=false -out=tfplan -var="image_uri=${{ steps.build-image.outputs.image }}"
+        terraform -chdir=terraform apply -input=false tfplan 
+
