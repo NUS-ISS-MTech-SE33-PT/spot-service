@@ -1,4 +1,11 @@
+using Amazon.DynamoDBv2;
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
+builder.Services.AddAWSService<IAmazonDynamoDB>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -11,9 +18,16 @@ if (app.Environment.IsDevelopment())
 var logger = app.Logger;
 app.Use(async (context, next) =>
 {
-    logger.LogInformation("Request: {Method} {Path}", context.Request.Method, context.Request.Path);
+    var utcNow = DateTime.UtcNow.ToString("o");
+    var method = context.Request.Method;
+    var path = context.Request.Path;
+    var headers = string.Join("; ", context.Request.Headers.Select(h => $"{h.Key}: {h.Value}"));
+
+    logger.LogInformation("{UtcNow}\t{Method}\t{Path} | Headers: {Headers}",
+        utcNow, method, path, headers);
+
     await next.Invoke();
 });
-app.MapGet("/health", () => Results.Ok(DateTime.Now));
-app.MapGet("/", () => "Hello World from spot service!");
+
+app.MapGet("spots/health", () => Results.Ok(DateTime.Now));
 app.Run();
