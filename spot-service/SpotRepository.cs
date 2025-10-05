@@ -56,7 +56,6 @@ public class SpotRepository
         var request = new QueryRequest
         {
             TableName = _tableName,
-            IndexName = "gsi_id",
             KeyConditionExpression = "id = :id",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
