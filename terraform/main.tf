@@ -166,7 +166,8 @@ resource "aws_apigatewayv2_integration" "spot_service_integration" {
 resource "aws_apigatewayv2_route" "route" {
   for_each = toset([
     "GET /spots/health",
-    "GET /spots"
+    "GET /spots",
+    "GET /spots/{id}"
   ])
 
   api_id    = data.terraform_remote_state.infra_api_gateway.outputs.aws_apigatewayv2_api_makan_go_http_api_id
