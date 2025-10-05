@@ -29,5 +29,14 @@ app.Use(async (context, next) =>
     await next.Invoke();
 });
 
-app.MapGet("spots/health", () => Results.Ok(DateTime.Now));
+// GET /spots/health
+app.MapGet("/spots/health", () => Results.Ok(DateTime.Now));
+
+// GET /spots/{id}/reviews
+app.MapGet("/spots", async (SpotRepository repo) =>
+{
+    var spots = await repo.GetAllSpotsAsync();
+    return Results.Ok(new GetSpotsResponse { Items = spots });
+});
+
 app.Run();
