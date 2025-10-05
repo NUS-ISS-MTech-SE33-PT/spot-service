@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
@@ -34,7 +35,7 @@ app.Use(async (context, next) =>
 app.MapGet("/spots/health", () => Results.Ok(DateTime.Now));
 
 // GET /spots/{id}/reviews
-app.MapGet("/spots", async (SpotRepository repo) =>
+app.MapGet("/spots", async ([FromServices] SpotRepository repo) =>
 {
     var spots = await repo.GetAllSpotsAsync();
     return Results.Ok(new GetSpotsResponse { Items = spots });
