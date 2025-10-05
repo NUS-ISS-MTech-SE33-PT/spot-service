@@ -150,18 +150,31 @@ resource "aws_apigatewayv2_integration" "spot_service_integration" {
   integration_uri        = aws_lb_listener.spot_service_network_load_balancer_listener.arn
   connection_type        = "VPC_LINK"
   connection_id          = data.terraform_remote_state.infra_api_gateway.outputs.aws_apigatewayv2_vpc_link_ecs_vpc_link_id
-  payload_format_version = "1.0"
   integration_method     = "ANY"
 
   request_parameters = {
-    "overwrite:path" = "/$request.path.proxy"
+    "overwrite:path" = "$request.path",
+    "append:header.x-user-sub" = "$context.authorizer.claims.sub"
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
 resource "aws_apigatewayv2_route" "route" {
+  for_each = toset([
+    "GET /spots/health",
+    "GET /spots"
+  ])
+
   api_id    = data.terraform_remote_state.infra_api_gateway.outputs.aws_apigatewayv2_api_makan_go_http_api_id
-  route_key = "ANY /spots/{proxy+}"
+  route_key = each.value
   target    = "integrations/${aws_apigatewayv2_integration.spot_service_integration.id}"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_cloudwatch_log_group" "spot_service_log" {
