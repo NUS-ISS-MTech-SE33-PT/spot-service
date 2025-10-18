@@ -35,10 +35,34 @@ app.Use(async (context, next) =>
 app.MapGet("/spots/health", () => Results.Ok(DateTime.Now));
 
 // GET /spots
-app.MapGet("/spots", async ([FromServices] SpotRepository repo) =>
+app.MapGet("/spots", async (
+    [FromServices] SpotRepository repo,
+    [FromQuery] string? query,
+    [FromQuery(Name = "quick")] string[]? quickFilters,
+    [FromQuery] string? cuisine,
+    [FromQuery] double? priceMin,
+    [FromQuery] double? priceMax,
+    [FromQuery] bool? openNow,
+    [FromQuery] bool? centersOnly,
+    [FromQuery] string? sort,
+    [FromQuery] double? userLatitude,
+    [FromQuery] double? userLongitude) =>
 {
+    var options = SpotSearchOptions.FromParameters(
+        query,
+        quickFilters,
+        cuisine,
+        priceMin,
+        priceMax,
+        openNow,
+        centersOnly,
+        sort,
+        userLatitude,
+        userLongitude);
+
     var spots = await repo.GetAllSpotsAsync();
-    return Results.Ok(new GetSpotsResponse { Items = spots });
+    var filtered = SpotSearchHelper.Apply(spots, options);
+    return Results.Ok(new GetSpotsResponse { Items = filtered });
 });
 
 // GET /spots/{id}
