@@ -183,28 +183,3 @@ resource "aws_cloudwatch_log_group" "spot_service_log" {
   name              = "makan-go/prod/spot-service"
   retention_in_days = 7
 }
-
-resource "aws_appautoscaling_target" "spot_service_target" {
-  max_capacity       = 5
-  min_capacity       = 1
-  resource_id        = "service/${data.terraform_remote_state.infra_ecs.outputs.aws_ecs_cluster_prod_id}/${aws_ecs_service.spot_service.name}"
-  scalable_dimension = "ecs:service:DesiredCount"
-  service_namespace  = "ecs"
-}
-
-resource "aws_appautoscaling_policy" "spot_service_cpu_policy" {
-  name               = "spot-service-cpu-scaling"
-  policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.spot_service_target.resource_id
-  scalable_dimension = aws_appautoscaling_target.spot_service_target.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.spot_service_target.service_namespace
-
-  target_tracking_scaling_policy_configuration {
-    target_value       = 50.0       # target average CPU utilization %
-    predefined_metric_specification {
-      predefined_metric_type = "ECSServiceAverageCPUUtilization"
-    }
-    scale_in_cooldown  = 60          # seconds
-    scale_out_cooldown = 60          # seconds
-  }
-}
