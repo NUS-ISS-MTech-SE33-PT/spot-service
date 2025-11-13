@@ -74,3 +74,5 @@ app.MapGet("/spots/{id}", async (string id, [FromServices] SpotRepository repo) 
 });
 
 app.Run();
+
+public partial class Program { }
