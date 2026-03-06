@@ -86,7 +86,7 @@ app.Use(async (context, next) =>
 });
 
 // GET /spots/health
-app.MapGet("/spots/health", () => Results.Ok(DateTime.Now));
+app.MapGet("/spots/health", () => Results.BadRequest(DateTime.Now));
 
 // GET /spots
 app.MapGet("/spots", async (
