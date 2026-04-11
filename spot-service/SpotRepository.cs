@@ -1,7 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 
-public class SpotRepository
+public class SpotRepository : ISpotRepository
 {
     private readonly IAmazonDynamoDB _dynamoDb;
     private readonly string _tableName;

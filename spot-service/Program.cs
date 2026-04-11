@@ -7,7 +7,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
 builder.Services.AddAWSService<IAmazonDynamoDB>();
-builder.Services.AddScoped<SpotRepository>();
+builder.Services.AddScoped<ISpotRepository, SpotRepository>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -22,6 +22,40 @@ IResult ApiError(HttpContext context, int statusCode, string code, string messag
         message,
         traceId = context.TraceIdentifier
     }, statusCode: statusCode);
+}
+
+static (int Page, int PageSize)? TryGetPagination(
+    HttpContext ctx,
+    int? page,
+    int? pageSize,
+    int defaultPageSize,
+    int maxPageSize,
+    out IResult? errorResult)
+{
+    errorResult = null;
+
+    var resolvedPage = page ?? 1;
+    var resolvedPageSize = pageSize ?? defaultPageSize;
+
+    if (resolvedPage < 1)
+    {
+        errorResult = Results.Json(new { code = "invalid_pagination", message = "Page must be >= 1.", traceId = ctx.TraceIdentifier }, statusCode: StatusCodes.Status400BadRequest);
+        return null;
+    }
+
+    if (resolvedPageSize < 1)
+    {
+        errorResult = Results.Json(new { code = "invalid_pagination", message = "PageSize must be >= 1.", traceId = ctx.TraceIdentifier }, statusCode: StatusCodes.Status400BadRequest);
+        return null;
+    }
+
+    if (resolvedPageSize > maxPageSize)
+    {
+        errorResult = Results.Json(new { code = "pagination_limit_exceeded", message = $"PageSize must be <= {maxPageSize}.", traceId = ctx.TraceIdentifier }, statusCode: StatusCodes.Status400BadRequest);
+        return null;
+    }
+
+    return (resolvedPage, resolvedPageSize);
 }
 
 static string SanitizeHeaders(IHeaderDictionary headers)
@@ -90,7 +124,8 @@ app.MapGet("/spots/health", () => Results.Ok(DateTime.Now));
 
 // GET /spots
 app.MapGet("/spots", async (
-    [FromServices] SpotRepository repo,
+    HttpContext ctx,
+    [FromServices] ISpotRepository repo,
     [FromQuery] string? query,
     [FromQuery(Name = "quick")] string[]? quickFilters,
     [FromQuery] string? cuisine,
@@ -100,8 +135,19 @@ app.MapGet("/spots", async (
     [FromQuery] bool? centersOnly,
     [FromQuery] string? sort,
     [FromQuery] double? userLatitude,
-    [FromQuery] double? userLongitude) =>
+    [FromQuery] double? userLongitude,
+    [FromQuery] int? page,
+    [FromQuery] int? pageSize) =>
 {
+    var defaultPageSize = builder.Configuration.GetValue("Pagination:DefaultPageSize", 50);
+    var maxPageSize = builder.Configuration.GetValue("Pagination:MaxPageSize", 200);
+
+    var pagination = TryGetPagination(ctx, page, pageSize, defaultPageSize, maxPageSize, out var paginationError);
+    if (pagination == null)
+    {
+        return paginationError!;
+    }
+
     var options = SpotSearchOptions.FromParameters(
         query,
         quickFilters,
@@ -116,11 +162,24 @@ app.MapGet("/spots", async (
 
     var spots = await repo.GetAllSpotsAsync();
     var filtered = SpotSearchHelper.Apply(spots, options);
-    return Results.Ok(new GetSpotsResponse { Items = filtered });
+
+    var total = filtered.Count;
+    var offsetLong = (long)(pagination.Value.Page - 1) * pagination.Value.PageSize;
+    var items = offsetLong >= total
+        ? new List<Spot>()
+        : filtered.Skip((int)offsetLong).Take(pagination.Value.PageSize).ToList();
+
+    return Results.Ok(new GetSpotsResponse
+    {
+        Page = pagination.Value.Page,
+        PageSize = pagination.Value.PageSize,
+        TotalItems = total,
+        Items = items
+    });
 });
 
 // GET /spots/{id}
-app.MapGet("/spots/{id}", async (string id, HttpContext ctx, [FromServices] SpotRepository repo) =>
+app.MapGet("/spots/{id}", async (string id, HttpContext ctx, [FromServices] ISpotRepository repo) =>
 {
     var spot = await repo.GetSpotByIdAsync(id);
     if (spot == null)
